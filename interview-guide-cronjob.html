@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interview Guide — Cronjob Reliability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F5F0;
+    --surface: #FFFFFF;
+    --surface2: #F0EDE6;
+    --ink: #1A1814;
+    --ink2: #5C574F;
+    --ink3: #9C9690;
+    --accent: #2D4A3E;
+    --accent-light: #E8F0ED;
+    --amber: #B5620A;
+    --amber-light: #FDF0E0;
+    --purple: #3C3489;
+    --purple-light: #EEEDFE;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+    --green: #27500A;
+    --green-light: #EAF3DE;
+    --border: rgba(26,24,20,0.1);
+    --border-strong: rgba(26,24,20,0.2);
+    --serif: 'Instrument Serif', Georgia, serif;
+    --sans: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 400;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 4rem 2rem 6rem;
+  }
+
+  .header {
+    margin-bottom: 3.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  .header-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 1rem;
+  }
+
+  .header h1 {
+    font-family: var(--serif);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 400;
+    line-height: 1.15;
+    color: var(--ink);
+    margin-bottom: 1rem;
+  }
+
+  .header h1 em { font-style: italic; color: var(--accent); }
+
+  .header-desc {
+    font-size: 15px;
+    color: var(--ink2);
+    max-width: 580px;
+    line-height: 1.7;
+  }
+
+  .header-meta {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border-strong);
+    color: var(--ink2);
+    background: var(--surface);
+  }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin: 3rem 0 1.25rem;
+  }
+
+  .section-num {
+    font-family: var(--serif);
+    font-size: 1.75rem;
+    font-style: italic;
+    color: var(--ink3);
+    min-width: 2rem;
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink3);
+  }
+
+  .q-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.75rem 2rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .q-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 1rem;
+  }
+
+  .q-text {
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: var(--ink);
+    font-style: italic;
+    border-left: 3px solid var(--accent);
+    padding-left: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .q-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .tag-purple { background: var(--purple-light); color: var(--purple); }
+  .tag-green  { background: var(--green-light);  color: var(--green);  }
+  .tag-amber  { background: var(--amber-light);  color: var(--amber);  }
+  .tag-teal   { background: #E1F5EE; color: #085041; }
+  .tag-coral  { background: #FAECE7; color: #712B13; }
+
+  .body-note {
+    font-size: 14px;
+    color: var(--ink2);
+    margin-bottom: 1.5rem;
+    line-height: 1.7;
+  }
+
+  .level-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+
+  .level-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.35rem;
+  }
+
+  .level-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 1rem;
+  }
+
+  .badge-junior { background: var(--green-light); color: var(--green); }
+  .badge-mid    { background: var(--amber-light); color: var(--amber); }
+  .badge-senior { background: var(--purple-light); color: var(--purple); }
+
+  .flag-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+
+  .flag-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+
+  .dot-green { background: #1D9E75; }
+  .dot-red   { background: #E24B4A; }
+
+  .flag-text {
+    font-size: 13px;
+    color: var(--ink2);
+    line-height: 1.55;
+  }
+
+  .hints-stack { display: flex; flex-direction: column; gap: 10px; }
+
+  .hint-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .hint-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.35rem;
+    cursor: pointer;
+    user-select: none;
+    gap: 1rem;
+  }
+
+  .hint-trigger:hover { background: var(--surface2); }
+
+  .hint-trigger-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .hint-trigger-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--surface2);
+    color: var(--ink3);
+    white-space: nowrap;
+  }
+
+  .hint-chevron {
+    font-size: 12px;
+    color: var(--ink3);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .hint-body {
+    display: none;
+    padding: 0 1.35rem 1.1rem;
+    font-size: 13.5px;
+    color: var(--ink2);
+    line-height: 1.7;
+    border-top: 1px solid var(--border);
+  }
+
+  .hint-body.open { display: block; }
+  .hint-chevron.open { transform: rotate(180deg); }
+  .hint-body strong { font-weight: 500; color: var(--ink); }
+
+  .hint-body .followup {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: var(--accent-light);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--accent);
+    font-style: italic;
+    border-left: 3px solid var(--accent);
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2.5rem 0;
+  }
+
+  .tab-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--ink2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .tab-btn:hover { background: var(--surface2); }
+  .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  .q3-two-parts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 1rem;
+  }
+
+  .q3-part {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.1rem;
+  }
+
+  .q3-part-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    margin-bottom: 6px;
+  }
+
+  .q3-part-text {
+    font-size: 13px;
+    color: var(--ink2);
+    line-height: 1.6;
+  }
+
+  .footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink3);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  @media print {
+    body { background: #fff; }
+    .hint-body { display: block !important; }
+    .hint-chevron { display: none; }
+    .tab-pane { display: block !important; }
+    .tab-row { display: none; }
+    .q3-two-parts { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    .page { padding: 2rem 1.25rem 4rem; }
+    .level-grid { grid-template-columns: 1fr; }
+    .q-text { font-size: 1.05rem; }
+    .q3-two-parts { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="header">
+    <div class="header-eyebrow">Backend Engineering — Interview Guide</div>
+    <h1>The <em>Cronjob</em><br>Reliability Questions</h1>
+    <p class="header-desc">Three linked questions that move from diagnosis to implementation to scale and observability. Each is independent enough that a candidate can perform differently on each — and that gap is itself informative.</p>
+    <div class="header-meta">
+      <span class="meta-pill">PHP / Python</span>
+      <span class="meta-pill">Junior · Mid · Senior</span>
+      <span class="meta-pill">~60 min total</span>
+      <span class="meta-pill">Backend reliability</span>
+    </div>
+  </header>
+
+  <!-- Q1 -->
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <span class="section-title">Diagnostic thinking</span>
+  </div>
+
+  <div class="q-card">
+    <div class="q-label">Question 1 — Open-ended, no right answer</div>
+    <div class="q-text">"You have a cronjob that runs every night at 2am and has run fine for 8 months. This Monday it didn't run. Walk me through how you investigate — without looking at the code first."</div>
+    <div class="q-tags">
+      <span class="tag tag-purple">open-ended</span>
+      <span class="tag tag-green">no right answer</span>
+      <span class="tag tag-amber">~10 min</span>
+    </div>
+  </div>
+
+  <p class="body-note">The constraint "without looking at the code first" is the lever. It forces the candidate to reason about the system as a whole — infra, environment, external dependencies — before retreating to what's familiar. Listen for how they <em>categorize</em> their hypotheses, not just which hypothesis they pick first.</p>
+
+  <!-- Q2 -->
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <span class="section-title">Implementation</span>
+  </div>
+
+  <div class="q-card">
+    <div class="q-label">Question 2 — Write it, make it safe</div>
+    <div class="q-text">"Write a PHP script meant to run as a cronjob. It fetches a list of pending notifications from an external API, saves them to a local database, then processes and sends each one. Make sure it's production-safe: no duplicates if something crashes halfway, no double-runs if the previous execution is still going, and individual failures shouldn't bring the whole job down."</div>
+    <div class="q-tags">
+      <span class="tag tag-purple">implementation</span>
+      <span class="tag tag-green">PHP / Python ok</span>
+      <span class="tag tag-amber">20–30 min</span>
+    </div>
+  </div>
+
+  <p class="body-note">The fetch step is deliberate. It adds a third failure domain — the external API — on top of the database and the send. Most candidates write a safe happy path and only reveal gaps when you ask: <em>"What if the API returns a 500 on page 3 of 5?"</em> Their reaction to that follow-up is often more revealing than their original code.</p>
+
+  <!-- Q3 -->
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <span class="section-title">Scale &amp; observability</span>
+  </div>
+
+  <div class="q-card">
+    <div class="q-label">Question 3 — Design conversation, no code required</div>
+    <div class="q-text">"Your script from Q2 now needs to process 5 million notifications a night instead of 5,000. And your team is tired of finding out about failures from angry users. What do you change — in the architecture and in the monitoring?"</div>
+    <div class="q-tags">
+      <span class="tag tag-teal">system design</span>
+      <span class="tag tag-coral">observability</span>
+      <span class="tag tag-amber">~20 min</span>
+    </div>
+    <div class="q3-two-parts">
+      <div class="q3-part">
+        <div class="q3-part-label">Scale thread</div>
+        <div class="q3-part-text">The cronjob model breaks at volume. Listen for when they identify <em>why</em> — a single process, serial execution, no backpressure — before jumping to a solution.</div>
+      </div>
+      <div class="q3-part">
+        <div class="q3-part-label">Observability thread</div>
+        <div class="q3-part-text">"Tired of hearing from users" is intentionally vague. Strong candidates immediately ask what signals they're missing — not what tool to add.</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="body-note">This question has no single right architecture. What you're evaluating is whether they can reason about constraints — throughput, latency, cost, operational complexity — and make deliberate trade-offs rather than just naming technologies. A candidate who says "use Kafka" without explaining what problem Kafka solves here is weaker than one who says "a simple queue with N workers would handle this and be easier to operate."</p>
+
+  <hr class="divider">
+
+  <!-- Scoring -->
+  <div class="section-header">
+    <span class="section-num" style="font-size:1.3rem;">↓</span>
+    <span class="section-title">Scoring by level</span>
+  </div>
+
+  <div class="tab-row">
+    <button class="tab-btn active" onclick="switchTab('q1', this)">Q1 — Diagnostic</button>
+    <button class="tab-btn" onclick="switchTab('q2', this)">Q2 — Implementation</button>
+    <button class="tab-btn" onclick="switchTab('q3', this)">Q3 — Scale &amp; observability</button>
+  </div>
+
+  <div id="pane-q1" class="tab-pane active">
+    <div class="level-grid">
+      <div class="level-card">
+        <span class="level-badge badge-junior">Junior</span>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Checks logs or cron syntax — at least one concrete first step</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Admits what they don't know without freezing up</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Only hypothesis is "the code broke" — jumps straight to grep</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Treats absence of an error as proof everything is fine</div></div>
+      </div>
+      <div class="level-card">
+        <span class="level-badge badge-mid">Mid</span>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Thinks in categories: infra, code, data, external deps</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Asks "what changed on Monday specifically" — deploys, servers, DST</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Checks system logs, not just app logs</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Doesn't consider the external API as a possible failure point</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Investigation is linear — one hypothesis at a time, no prioritization</div></div>
+      </div>
+      <div class="level-card">
+        <span class="level-badge badge-senior">Senior</span>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Recognizes absence of a log entry is itself a signal</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Asks "why didn't we know until someone noticed?" — probes alerting gaps</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Distinguishes job didn't start vs job started and silently failed</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Thinks about blast radius — what broke downstream because this didn't run?</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Jumps to solutions before finishing the diagnosis</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pane-q2" class="tab-pane">
+    <div class="level-grid">
+      <div class="level-card">
+        <span class="level-badge badge-junior">Junior</span>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Fetches from API, inserts to DB, sends — happy path works end to end</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Wraps sends in try/catch so one failure doesn't stop the loop</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">No deduplication — re-running the script re-fetches and re-sends everything</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">No concurrency protection — two overlapping runs would double-send</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Marks item as sent before confirming the send actually succeeded</div></div>
+      </div>
+      <div class="level-card">
+        <span class="level-badge badge-mid">Mid</span>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Uses a lock file or DB mutex to prevent concurrent runs</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Status transitions: pending → processing → sent / failed</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Deduplicates fetched items by external ID before inserting</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Logs job start, end, item count, and errors</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Doesn't handle stuck jobs — items in "processing" from a crashed run</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Lock file not cleaned up on crash — next run never starts</div></div>
+      </div>
+      <div class="level-card">
+        <span class="level-badge badge-senior">Senior</span>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Stuck-job timeout: items in "processing" for N minutes get reset to pending</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Idempotent send — marks sent only after confirmed delivery, handles DB-update-fails-after-send</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Retry budget per item with backoff, not infinite retries</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Questions the design: "should this be a queue worker instead of a cronjob?"</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Over-engineers on first pass without flagging trade-offs — adds SQS before writing a line</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pane-q3" class="tab-pane">
+    <div class="level-grid">
+      <div class="level-card">
+        <span class="level-badge badge-junior">Junior</span>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Identifies that a single process can't handle 5M items serially in one night</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Suggests adding logs or email alerts when the job fails</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Jumps to "use Kafka" or "use Kubernetes" without explaining the problem they solve here</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Monitoring answer is "add more logs" — no concept of proactive alerting</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Doesn't distinguish between alerting on failure vs alerting on anomaly</div></div>
+      </div>
+      <div class="level-card">
+        <span class="level-badge badge-mid">Mid</span>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Proposes parallel workers or a queue-based architecture with a clear reason why</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Mentions alerting on completion time, not just failure — "if it hasn't finished by 4am, page someone"</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Tracks a processed-count metric to catch silent degradation</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Doesn't think about external API rate limits as a scale constraint</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Monitoring covers the happy path only — no plan for partial failures</div></div>
+      </div>
+      <div class="level-card">
+        <span class="level-badge badge-senior">Senior</span>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Identifies real bottlenecks: API rate limits, DB write throughput, send provider caps — not just CPU</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Proposes a meaningful SLO: "95% of notifications sent within 2 hours of midnight" — not just "make it faster"</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Considers cost: more workers = more API calls = more spend on the send provider</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Monitoring includes a dead-man's switch — alert if the job hasn't started at all by 2:05am</div></div>
+        <div class="flag-item"><div class="flag-dot dot-green"></div><div class="flag-text">Questions whether a nightly batch is still the right model at this scale — maybe streaming is better</div></div>
+        <div class="flag-item"><div class="flag-dot dot-red"></div><div class="flag-text">Designs a perfect system with no regard for migrating from the existing script</div></div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Evaluator hints -->
+  <div class="section-header">
+    <span class="section-num" style="font-size:1.3rem;">?</span>
+    <span class="section-title">Evaluator hints — when the candidate asks about...</span>
+  </div>
+
+  <p class="body-note">Use these when a candidate raises a topic unprompted. The direction is usually a green flag — use the hint to calibrate <em>depth</em>, not to penalize the approach.</p>
+
+  <div class="hints-stack">
+
+    <div class="hint-card">
+      <div class="hint-trigger" onclick="toggleHint(this)">
+        <span class="hint-trigger-label">Retry handling</span>
+        <span class="hint-trigger-tag">any level</span>
+        <span class="hint-chevron">▼</span>
+      </div>
+      <div class="hint-body">
+        Good sign at any level. Listen for whether they <strong>bound the retries</strong> — "retry forever" is a red flag, "retry 3 times with backoff then mark as failed" shows real production thinking. A senior should mention that retrying a send that may have already succeeded is different from retrying a fetch.
+        <div class="followup">Follow-up: "What happens to the item after it exhausts its retries?"</div>
+      </div>
+    </div>
+
+    <div class="hint-card">
+      <div class="hint-trigger" onclick="toggleHint(this)">
+        <span class="hint-trigger-label">Logging / observability</span>
+        <span class="hint-trigger-tag">expected mid+</span>
+        <span class="hint-chevron">▼</span>
+      </div>
+      <div class="hint-body">
+        Expected from mid+. A junior mentioning it unprompted is a strong green flag. <strong>Depth matters:</strong> logging "job ran" is table stakes. Logging item-level outcomes, durations, and external API response codes is mid. Emitting structured logs with a job run ID that ties every item back to one execution is senior.
+        <div class="followup">Follow-up: "How would you know the job ran but processed zero items?"</div>
+      </div>
+    </div>
+
+    <div class="hint-card">
+      <div class="hint-trigger" onclick="toggleHint(this)">
+        <span class="hint-trigger-label">SQS vs RabbitMQ</span>
+        <span class="hint-trigger-tag">mid+ signal</span>
+        <span class="hint-chevron">▼</span>
+      </div>
+      <div class="hint-body">
+        Don't penalize for not knowing both. What matters is whether they understand <strong>why</strong> a queue helps here — decoupling fetch from send, built-in retry, natural backpressure. If they bring it up, ask what they'd lose by switching from a cronjob to a queue worker. A candidate who can name the trade-offs (operational complexity, visibility, local dev setup) is stronger than one who just says "queues are better."
+        <div class="followup">Follow-up: "What would you lose by moving this to a queue worker?"</div>
+      </div>
+    </div>
+
+    <div class="hint-card">
+      <div class="hint-trigger" onclick="toggleHint(this)">
+        <span class="hint-trigger-label">Dead letter queue</span>
+        <span class="hint-trigger-tag">senior signal</span>
+        <span class="hint-chevron">▼</span>
+      </div>
+      <div class="hint-body">
+        Senior signal. It shows they've thought about items that fail repeatedly and need human review — not just automatic retry. If they mention it, ask: "who reads the dead letter queue, and when?" A good answer involves alerting and a manual reprocess path. A weak answer is "it just sits there." Bonus: do they distinguish between a DLQ for <strong>infrastructure failures</strong> vs a DLQ for <strong>business logic failures</strong> like malformed data?
+        <div class="followup">Follow-up: "Who reads the dead letter queue, and when?"</div>
+      </div>
+    </div>
+
+    <div class="hint-card">
+      <div class="hint-trigger" onclick="toggleHint(this)">
+        <span class="hint-trigger-label">The external API is down</span>
+        <span class="hint-trigger-tag">push this if they don't</span>
+        <span class="hint-chevron">▼</span>
+      </div>
+      <div class="hint-body">
+        If they don't bring this up, ask it. It's the most realistic failure mode and tests whether they treat the fetch step as fallible — not just the send step. A <strong>junior</strong> might say "we catch the exception." A <strong>mid</strong> says "we log it and exit cleanly without touching the DB." A <strong>senior</strong> says "we exit cleanly, alert, and consider whether to retry the whole job or wait for the next scheduled run — and we track whether this is a recurring pattern."
+        <div class="followup">Push: "What if the API returns a 500 on page 3 of 5?"</div>
+      </div>
+    </div>
+
+    <div class="hint-card">
+      <div class="hint-trigger" onclick="toggleHint(this)">
+        <span class="hint-trigger-label">Horizontal scaling / parallel workers</span>
+        <span class="hint-trigger-tag">Q3 specific</span>
+        <span class="hint-chevron">▼</span>
+      </div>
+      <div class="hint-body">
+        When they propose parallel workers, probe the <strong>coordination problem</strong>: how do two workers avoid picking up the same notification? If they haven't thought about it, they've just moved the duplicate-send problem from time (two sequential runs) to space (two simultaneous workers). A mid answers with DB-level row locking or a queue. A senior preemptively mentions it and explains why a queue makes worker coordination trivial.
+        <div class="followup">Follow-up: "If you run 10 workers in parallel, how do they avoid processing the same item twice?"</div>
+      </div>
+    </div>
+
+    <div class="hint-card">
+      <div class="hint-trigger" onclick="toggleHint(this)">
+        <span class="hint-trigger-label">SLOs / alerting thresholds</span>
+        <span class="hint-trigger-tag">Q3 specific — senior signal</span>
+        <span class="hint-chevron">▼</span>
+      </div>
+      <div class="hint-body">
+        If they define an SLO unprompted — "99% of notifications delivered within X hours" — that's a strong senior signal. It means they think in terms of <strong>user impact</strong>, not just system health. Push further: "how do you alert before you breach the SLO, not after?" A good answer involves burn-rate alerts or a completion-rate curve — not just a binary success/failure check at the end of the job.
+        <div class="followup">Follow-up: "How do you know you're going to miss your SLO at 3am, not at 6am when it's too late?"</div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="footer">
+    <span>Interview Guide — Cronjob Reliability</span>
+    <span>Backend Engineering · PHP / Python · 3 questions</span>
+  </footer>
+
+</div>
+
+<script>
+  function toggleHint(trigger) {
+    const body = trigger.nextElementSibling;
+    const chevron = trigger.querySelector('.hint-chevron');
+    const isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    chevron.classList.toggle('open', !isOpen);
+  }
+
+  function switchTab(id, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('pane-' + id).classList.add('active');
+    btn.classList.add('active');
+  }
+</script>
+</body>
+</html>
